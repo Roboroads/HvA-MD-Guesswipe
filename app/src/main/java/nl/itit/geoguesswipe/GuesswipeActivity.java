@@ -4,6 +4,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.helper.ItemTouchHelper;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
@@ -44,79 +45,57 @@ public class GuesswipeActivity extends AppCompatActivity {
         totalScorable = mAdapter.getItemCount();
 
 
-        //Initialize a new gesture listener
-        final GestureDetector.SimpleOnGestureListener gestureListener = new GestureDetector.SimpleOnGestureListener() {
-            private static final int MINIMAL_DISTANCE_FOR_SWIPE = 120;
-            private static final int MINIMAL_SPEED_FOR_SWIPE = 200;
-            private static final int MAX_PATH_CORRECTION = 250; //When swiping down, no need to do gesture actions - we just want left/right.
 
+        ItemTouchHelper.SimpleCallback simpleItemTouchCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
             @Override
-            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-                try {
-                    if (Math.abs(e1.getY() - e2.getY()) > MAX_PATH_CORRECTION) {
-                        return false;
-                    }
-
-                    Boolean rightAnswer = false;
-                    // finding item that got swiped
-                    View child = mRecyclerView.findChildViewUnder(e1.getX(), e1.getY());
-                    int position = mRecyclerView.getChildPosition(child);
-                    final GuesswipeStreetviewObject streetviewObject = listStreetviewObject.get(position);
-
-                    //math.abs makes number always positive.
-                    if(e1.getX() - e2.getX() > MINIMAL_DISTANCE_FOR_SWIPE && Math.abs(velocityX) > MINIMAL_SPEED_FOR_SWIPE) {
-                        //Swipe Left = in europe
-                        if(streetviewObject.getIsInEurope()) {
-                            rightAnswer = true;
-                        }
-                    } else if (e2.getX() - e1.getX() > MINIMAL_DISTANCE_FOR_SWIPE && Math.abs(velocityX) > MINIMAL_SPEED_FOR_SWIPE) {
-                        //Swipe Right != in europe
-                        if(!streetviewObject.getIsInEurope()) {
-                            rightAnswer = true;
-                        }
-                    }
-
-                    if(rightAnswer) {
-                        Toast.makeText(GuesswipeActivity.this, "That is correct, good job!", Toast.LENGTH_SHORT).show();
-                        score++;
-                    } else {
-                        Toast.makeText(GuesswipeActivity.this, "Oops, that wasn't right.", Toast.LENGTH_SHORT).show();
-                    }
-
-                    //Removing the one that got swiped
-                    listStreetviewObject.remove(position);
-
-                    //Notifying that we changed the array.
-                    mAdapter.notifyDataSetChanged();
-
-                    //Changing score in title
-                    setTitle("Geo Guesswipe (score: "+score+"/"+totalScorable+")");
-
-                } catch (Exception e) {
-                    //Do nothing if it fails
-                }
+            public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder target) {
                 return false;
+            }
+
+            //Called when a user swipes left or right on a ViewHolder
+            @Override
+            public void onSwiped(RecyclerView.ViewHolder viewHolder, int swipeDir) {
+                //Get the index corresponding to the selected position
+                int position = (viewHolder.getAdapterPosition());
+                //Get the corresponding object
+                final GuesswipeStreetviewObject streetviewObject = listStreetviewObject.get(position);
+
+
+                Boolean rightAnswer = false;
+                if(swipeDir == ItemTouchHelper.LEFT) {
+                    //Swipe Left = in europe
+                    if(streetviewObject.getIsInEurope()) {
+                        rightAnswer = true;
+                    }
+                } else if (swipeDir == ItemTouchHelper.RIGHT) {
+                    //Swipe Right != in europe
+                    if(!streetviewObject.getIsInEurope()) {
+                        rightAnswer = true;
+                    }
+                }
+
+                if(rightAnswer) {
+                    Toast.makeText(GuesswipeActivity.this, "That is correct, good job!", Toast.LENGTH_SHORT).show();
+                    score++;
+                } else {
+                    Toast.makeText(GuesswipeActivity.this, "Oops, that wasn't right.", Toast.LENGTH_SHORT).show();
+                }
+
+
+                //Remove from list
+                listStreetviewObject.remove(position);
+
+                //Notify item in list got removed
+                mAdapter.notifyItemRemoved(position);
+
+                //Changing score in title
+                setTitle("Geo Guesswipe (score: "+score+"/"+totalScorable+")");
             }
         };
 
-        mRecyclerView.addOnItemTouchListener(new RecyclerView.OnItemTouchListener() {
-            //add gestureListener to a GestureDetector
-            GestureDetector gestureDetector = new GestureDetector(GuesswipeActivity.this, gestureListener);
 
-            @Override
-            public boolean onInterceptTouchEvent(RecyclerView rv, MotionEvent e) {
-                gestureDetector.onTouchEvent(e);
-                return false;
-            }
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(simpleItemTouchCallback);
 
-            //Do nothing here
-            @Override
-            public void onTouchEvent(RecyclerView rv, MotionEvent e) {}
-
-            //Do nothing here
-            @Override
-            public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept) {}
-        });
-
+        itemTouchHelper.attachToRecyclerView(mRecyclerView);
     }
 }
